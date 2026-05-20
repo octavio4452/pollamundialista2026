@@ -533,6 +533,10 @@ function ReportsPanel() {
   const generate = async () => {
     setBusy(true);
     try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const ids = lockedUsers.map((u: any) => u.id);
       if (ids.length === 0) {
         toast.error("Aún no hay pronósticos finales enviados");
