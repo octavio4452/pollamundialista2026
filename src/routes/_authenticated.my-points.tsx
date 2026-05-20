@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/my-points")({ component: MyPoints });
 
@@ -36,11 +37,17 @@ function MyPoints() {
         supabase.from("top_scorer_predictions").select("*").eq("user_id", user!.id).maybeSingle(),
         supabase.from("tournament_settings").select("*").eq("id", 1).maybeSingle(),
       ]);
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("predictions_locked_at")
+        .eq("id", user!.id)
+        .maybeSingle();
       return {
         matches: mp.data ?? [],
         bracket: bp.data ?? [],
         scorer: ts.data,
         settings: settings.data,
+        locked: !!profile?.predictions_locked_at,
       };
     },
   });
@@ -57,6 +64,8 @@ function MyPoints() {
     bracket.reduce((s, b: any) => s + (b.points_awarded || 0), 0) +
     (data?.scorer?.points_awarded || 0);
 
+  const locked = data?.locked ?? false;
+
   return (
     <div className="space-y-6">
       <div className="flex items-baseline justify-between flex-wrap gap-2">
@@ -69,6 +78,22 @@ function MyPoints() {
           <div className="text-xs text-muted-foreground">puntos totales</div>
         </div>
       </div>
+
+      {!locked && (
+        <Card className="p-4 border-amber-500/50 bg-amber-500/10">
+          <div className="flex gap-3">
+            <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-amber-700 dark:text-amber-400">
+                No has realizado el envío final de tus pronósticos
+              </p>
+              <p className="text-muted-foreground mt-1">
+                Mientras no envíes definitivamente tus pronósticos, <b>no se te asignarán puntos</b> aunque tus predicciones sean correctas. Ve a "Mis pronósticos" y completa el envío final.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-5">
         <h2 className="font-semibold mb-4">Pronósticos de partidos</h2>
