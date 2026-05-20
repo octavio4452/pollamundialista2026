@@ -211,53 +211,85 @@ function MatchesTab({ matches, preds, locked }: { matches: any[]; preds: any[]; 
     }
   };
 
+  const groupedMatches = useMemo(() => {
+    const groups: Record<string, { label: string; items: any[] }> = {};
+    for (const m of matches) {
+      const isGroup = m.stage === "group";
+      const key = isGroup ? `group-${m.group_name}` : m.stage;
+      const label = isGroup ? `Grupo ${m.group_name}` : m.stage.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      if (!groups[key]) groups[key] = { label, items: [] };
+      groups[key].items.push(m);
+    }
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a.startsWith("group-") && b.startsWith("group-")) return a.localeCompare(b);
+      if (a.startsWith("group-")) return -1;
+      if (b.startsWith("group-")) return 1;
+      const order = ["round_of_16", "quarter_final", "semi_final", "final"];
+      return order.indexOf(a) - order.indexOf(b);
+    });
+  }, [matches]);
+
   if (matches.length === 0)
     return <Card className="p-8 text-center text-muted-foreground">El administrador aún no ha cargado partidos.</Card>;
 
   return (
-    <div className="space-y-3">
-      {matches.map((m: any) => {
-        const matchLocked = locked || m.finished || new Date(m.kickoff) <= new Date();
-        const p = predMap.get(m.id);
-        const choice = (val: "home" | "draw" | "away", label: string) => {
-          const selected = p?.predicted_outcome === val;
-          if (locked && !selected) return null;
-          return (
-            <Button
-              key={val}
-              type="button"
-              variant={selected ? "default" : "outline"}
-              size="sm"
-              disabled={matchLocked}
-              onClick={() => setPred(m.id, val)}
-            >
-              {label}
-            </Button>
-          );
-        };
+    <div className="space-y-6">
+      {groupedMatches.map(([key, { label, items }]) => {
+        const completed = items.filter((m: any) => predMap.has(m.id)).length;
         return (
-          <Card key={m.id} className="p-4 elevation-1 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between">
-            <div className="flex-1">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">
-                {m.stage === "group" ? `Grupo ${m.group_name}` : m.stage.replace(/_/g, " ")} ·{" "}
-                {new Date(m.kickoff).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}
-              </div>
-              <div className="font-medium mt-1">
-                {m.home?.flag_emoji} {m.home?.name} <span className="text-muted-foreground">vs</span> {m.away?.flag_emoji} {m.away?.name}
-              </div>
-              {m.finished && (
-                <div className="text-sm text-primary font-semibold mt-1">
-                  Final: {m.home_score} - {m.away_score}
-                </div>
-              )}
+          <Card key={key} className="elevation-1 overflow-hidden">
+            <div className="bg-primary/10 px-4 py-3 flex items-center justify-between border-b border-border">
+              <h3 className="font-semibold text-sm uppercase tracking-wide">{label}</h3>
+              <Badge variant="outline" className="text-xs">
+                {completed}/{items.length} pronosticados
+              </Badge>
             </div>
-            <div className="flex gap-2 items-center">
-              {locked && !p && (
-                <span className="text-xs text-muted-foreground italic">Sin pronóstico</span>
-              )}
-              {choice("home", m.home?.code || "Local")}
-              {choice("draw", "Empate")}
-              {choice("away", m.away?.code || "Visitante")}
+            <div className="divide-y divide-border">
+              {items.map((m: any) => {
+                const matchLocked = locked || m.finished || new Date(m.kickoff) <= new Date();
+                const p = predMap.get(m.id);
+                const choice = (val: "home" | "draw" | "away", labelBtn: string) => {
+                  const selected = p?.predicted_outcome === val;
+                  if (locked && !selected) return null;
+                  return (
+                    <Button
+                      key={val}
+                      type="button"
+                      variant={selected ? "default" : "outline"}
+                      size="sm"
+                      disabled={matchLocked}
+                      onClick={() => setPred(m.id, val)}
+                    >
+                      {labelBtn}
+                    </Button>
+                  );
+                };
+                return (
+                  <div key={m.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(m.kickoff).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}
+                      </div>
+                      <div className="font-medium mt-1 truncate">
+                        {m.home?.flag_emoji} {m.home?.name} <span className="text-muted-foreground mx-1">vs</span> {m.away?.flag_emoji} {m.away?.name}
+                      </div>
+                      {m.finished && (
+                        <div className="text-sm text-primary font-semibold mt-1">
+                          Final: {m.home_score} - {m.away_score}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 items-center flex-wrap">
+                      {locked && !p && (
+                        <span className="text-xs text-muted-foreground italic">Sin pronóstico</span>
+                      )}
+                      {choice("home", m.home?.code || "Local")}
+                      {choice("draw", "Empate")}
+                      {choice("away", m.away?.code || "Visitante")}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         );
