@@ -318,6 +318,17 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
     } else {
       const count = preds.filter((p: any) => p.category === cat).length;
       if (count >= max) return toast.error(`Máximo ${max} equipos en esta fase`);
+      if (cat === "group_advance") {
+        const team = teams.find((t: any) => t.id === teamId);
+        if (team?.group_name) {
+          const selectedInGroup = preds.filter((p: any) => {
+            if (p.category !== cat) return false;
+            const t = teams.find((tm: any) => tm.id === p.team_id);
+            return t?.group_name === team.group_name;
+          }).length;
+          if (selectedInGroup >= 3) return toast.error(`Máximo 3 equipos del grupo ${team.group_name}`);
+        }
+      }
       const { error } = await supabase
         .from("bracket_predictions")
         .insert({ user_id: user.id, category: cat as any, team_id: teamId });
@@ -345,9 +356,17 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
           <Card key={cat.key} className="p-5 elevation-1">
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
               <h3 className="font-semibold">{cat.label}</h3>
-              <span className="text-xs text-muted-foreground">
-                {selected.length}/{cat.count} · {cat.points} pts c/u
-              </span>
+              <div className="flex items-center gap-2">
+                {cat.key === "group_advance" && selected.length === cat.count && (
+                  <Badge variant="default" className="bg-green-600 text-white gap-1">
+                    <CheckCircle2 className="size-3" />
+                    Completo
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {selected.length}/{cat.count} · {cat.points} pts c/u
+                </span>
+              </div>
             </div>
             {locked && visibleTeams.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">No seleccionaste equipos en esta fase.</p>
@@ -365,33 +384,45 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
                 const groupKeys = Object.keys(byGroup).sort();
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {groupKeys.map((g) => (
-                      <div key={g} className="rounded-md border border-border bg-muted/30 p-3">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                          Grupo {g}
+                    {groupKeys.map((g) => {
+                      const selectedInGroup = byGroup[g].filter((t: any) => selected.some((s: any) => s.team_id === t.id)).length;
+                      const groupFull = cat.key === "group_advance" && selectedInGroup >= 3;
+                      return (
+                        <div key={g} className={`rounded-md border p-3 ${groupFull ? "border-green-500/50 bg-green-500/5" : "border-border bg-muted/30"}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Grupo {g}
+                            </div>
+                            {cat.key === "group_advance" && (
+                              <span className={`text-xs font-medium ${groupFull ? "text-green-600" : "text-muted-foreground"}`}>
+                                {selectedInGroup}/3
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {byGroup[g].map((t: any) => {
+                              const isSel = selected.some((s: any) => s.team_id === t.id);
+                              const disabled = locked || (cat.key === "group_advance" && !isSel && selectedInGroup >= 3);
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  disabled={disabled}
+                                  onClick={() => toggle(cat.key, t.id, cat.count)}
+                                  className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                                    isSel
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-card hover:bg-muted border-border"
+                                  } ${disabled ? "cursor-default opacity-60" : ""}`}
+                                >
+                                  {t.flag_emoji} {t.name}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {byGroup[g].map((t: any) => {
-                            const isSel = selected.some((s: any) => s.team_id === t.id);
-                            return (
-                              <button
-                                key={t.id}
-                                type="button"
-                                disabled={locked}
-                                onClick={() => toggle(cat.key, t.id, cat.count)}
-                                className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
-                                  isSel
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-card hover:bg-muted border-border"
-                                } ${locked ? "cursor-default" : ""}`}
-                              >
-                                {t.flag_emoji} {t.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()
