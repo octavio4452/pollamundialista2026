@@ -175,16 +175,19 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          predictions_locked_at: string | null
         }
         Insert: {
           created_at?: string
           full_name: string
           id: string
+          predictions_locked_at?: string | null
         }
         Update: {
           created_at?: string
           full_name?: string
           id?: string
+          predictions_locked_at?: string | null
         }
         Relationships: []
       }
@@ -318,6 +321,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      predictions_locked: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
