@@ -39,7 +39,7 @@ function Layout() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <Link to="/dashboard" className="flex items-center gap-2 font-bold">
             <Trophy className="size-5 text-primary" />
-            <span>Quiniela 2026</span>
+            <span>Polla Mundialista 2026</span>
           </Link>
           <nav className="flex items-center gap-1 flex-1 justify-center flex-wrap">
             {link("/dashboard", "Ranking")}
