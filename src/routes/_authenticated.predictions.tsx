@@ -360,11 +360,13 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
   return (
     <div className="space-y-6">
       {BRACKET_CATS.map((cat, idx) => {
-        const selected = preds.filter((p: any) => p.category === cat.key);
         const prevCat = idx > 0 ? BRACKET_CATS[idx - 1] : null;
         const prevSelectedIds = prevCat
           ? new Set(preds.filter((p: any) => p.category === prevCat.key).map((p: any) => p.team_id))
           : null;
+        const selected = preds.filter(
+          (p: any) => p.category === cat.key && (!prevSelectedIds || prevSelectedIds.has(p.team_id)),
+        );
         const eligibleTeams = prevSelectedIds
           ? teams.filter((t: any) => prevSelectedIds.has(t.id))
           : teams;
