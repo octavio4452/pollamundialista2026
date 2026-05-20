@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { createUser, deleteUser, toggleAdmin } from "@/lib/admin.functions";
+import { importWorldCupFixture, syncWorldCupResults } from "@/lib/sportsdb.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, ShieldCheck, ShieldOff } from "lucide-react";
+import { Trash2, ShieldCheck, ShieldOff, RefreshCw, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -39,12 +40,14 @@ function Admin() {
           <TabsTrigger value="matches">Partidos</TabsTrigger>
           <TabsTrigger value="bracket">Bracket oficial</TabsTrigger>
           <TabsTrigger value="scorer">Goleador oficial</TabsTrigger>
+          <TabsTrigger value="sync">Sincronizar Mundial</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
         <TabsContent value="teams" className="mt-4"><TeamsPanel /></TabsContent>
         <TabsContent value="matches" className="mt-4"><MatchesPanel /></TabsContent>
         <TabsContent value="bracket" className="mt-4"><BracketPanel /></TabsContent>
         <TabsContent value="scorer" className="mt-4"><ScorerPanel /></TabsContent>
+        <TabsContent value="sync" className="mt-4"><SyncPanel /></TabsContent>
       </Tabs>
     </div>
   );
@@ -414,5 +417,81 @@ function ScorerPanel() {
         <Button type="submit">Guardar</Button>
       </form>
     </Card>
+  );
+}
+
+function SyncPanel() {
+  const qc = useQueryClient();
+  const importFn = useServerFn(importWorldCupFixture);
+  const syncFn = useServerFn(syncWorldCupResults);
+  const [importing, setImporting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastImport, setLastImport] = useState<any>(null);
+  const [lastSync, setLastSync] = useState<any>(null);
+
+  const doImport = async () => {
+    setImporting(true);
+    try {
+      const r = await importFn();
+      setLastImport(r);
+      toast.success(`Importados ${r.imported}, omitidos ${r.skipped}`);
+      qc.invalidateQueries({ queryKey: ["admin-matches"] });
+    } catch (e: any) { toast.error(e.message); }
+    finally { setImporting(false); }
+  };
+  const doSync = async () => {
+    setSyncing(true);
+    try {
+      const r = await syncFn();
+      setLastSync(r);
+      toast.success(`Resultados actualizados: ${r.updated}`);
+      qc.invalidateQueries({ queryKey: ["admin-matches"] });
+      qc.invalidateQueries({ queryKey: ["user_scores"] });
+    } catch (e: any) { toast.error(e.message); }
+    finally { setSyncing(false); }
+  };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-4">
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center gap-2"><Download className="size-4 text-primary" /><h3 className="font-semibold">Importar fixture</h3></div>
+        <p className="text-sm text-muted-foreground">
+          Trae los próximos partidos del Mundial 2026 desde TheSportsDB. Los partidos ya cargados (mismo emparejamiento y fecha) se omiten.
+        </p>
+        <Button onClick={doImport} disabled={importing}>{importing ? "Importando…" : "Importar próximos partidos"}</Button>
+        {lastImport && (
+          <div className="text-xs text-muted-foreground border-t pt-3">
+            <div>Importados: <b>{lastImport.imported}</b> · Omitidos: <b>{lastImport.skipped}</b></div>
+            {lastImport.message && <div className="mt-1">{lastImport.message}</div>}
+            {lastImport.notMatched?.length > 0 && (
+              <details className="mt-1"><summary>Sin coincidir ({lastImport.notMatched.length})</summary>
+                <ul className="mt-1 list-disc pl-4">{lastImport.notMatched.map((n: string) => <li key={n}>{n}</li>)}</ul>
+              </details>
+            )}
+          </div>
+        )}
+      </Card>
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center gap-2"><RefreshCw className="size-4 text-primary" /><h3 className="font-semibold">Sincronizar resultados</h3></div>
+        <p className="text-sm text-muted-foreground">
+          Actualiza los marcadores finales de los partidos ya jugados. Al guardarse, los triggers recalculan automáticamente los puntos de cada usuario.
+        </p>
+        <Button onClick={doSync} disabled={syncing}>{syncing ? "Sincronizando…" : "Sincronizar resultados"}</Button>
+        {lastSync && (
+          <div className="text-xs text-muted-foreground border-t pt-3">
+            <div>Partidos actualizados: <b>{lastSync.updated}</b></div>
+            {lastSync.message && <div className="mt-1">{lastSync.message}</div>}
+            {lastSync.notMatched?.length > 0 && (
+              <details className="mt-1"><summary>Sin coincidir ({lastSync.notMatched.length})</summary>
+                <ul className="mt-1 list-disc pl-4">{lastSync.notMatched.map((n: string) => <li key={n}>{n}</li>)}</ul>
+              </details>
+            )}
+          </div>
+        )}
+      </Card>
+      <Card className="p-5 md:col-span-2 bg-muted/30 text-sm text-muted-foreground">
+        <b className="text-foreground">Nota:</b> usamos el plan gratuito de TheSportsDB (clave pública <code>3</code>), que sólo expone los próximos y los últimos 15 días de cada liga. Antes del kickoff del Mundial los endpoints pueden devolver vacío; durante el torneo se irán poblando automáticamente.
+      </Card>
+    </div>
   );
 }
