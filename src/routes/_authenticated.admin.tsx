@@ -267,6 +267,13 @@ function MatchesPanel() {
     else { toast.success("Resultado guardado, puntos recalculados"); qc.invalidateQueries({ queryKey: ["admin-matches"] }); }
   };
 
+  const clearResult = async (id: string) => {
+    if (!confirm("¿Borrar el resultado de este partido? Los puntos asignados se recalcularán a 0.")) return;
+    const { error } = await supabase.from("matches").update({ home_score: null, away_score: null, finished: false }).eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Resultado borrado, puntos recalculados"); qc.invalidateQueries({ queryKey: ["admin-matches"] }); }
+  };
+
   const del = async (id: string) => {
     if (!confirm("¿Eliminar partido?")) return;
     await supabase.from("matches").delete().eq("id", id);
@@ -314,22 +321,33 @@ function MatchesPanel() {
       </Card>
 
       <div className="space-y-2">
-        {matches.map((m: any) => <MatchRow key={m.id} match={m} onSave={saveResult} onDelete={del} />)}
+        {matches.map((m: any) => <MatchRow key={m.id} match={m} onSave={saveResult} onClear={clearResult} onDelete={del} />)}
         {matches.length === 0 && <Card className="p-8 text-center text-muted-foreground">No hay partidos.</Card>}
       </div>
     </div>
   );
 }
 
-function MatchRow({ match, onSave, onDelete }: { match: any; onSave: (id: string, h: number, a: number) => void; onDelete: (id: string) => void }) {
+function MatchRow({ match, onSave, onClear, onDelete }: { match: any; onSave: (id: string, h: number, a: number) => void; onClear: (id: string) => void; onDelete: (id: string) => void }) {
   const [h, setH] = useState<string>(match.home_score?.toString() ?? "");
   const [a, setA] = useState<string>(match.away_score?.toString() ?? "");
+  useEffect(() => {
+    setH(match.home_score?.toString() ?? "");
+    setA(match.away_score?.toString() ?? "");
+  }, [match.home_score, match.away_score]);
   return (
     <Card className="p-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
       <div className="flex-1">
-        <div className="text-xs text-muted-foreground uppercase">
-          {match.stage === "group" ? `Grupo ${match.group_name}` : match.stage} ·{" "}
-          {new Date(match.kickoff).toLocaleString("es")}
+        <div className="text-xs text-muted-foreground uppercase flex items-center gap-2">
+          <span>
+            {match.stage === "group" ? `Grupo ${match.group_name}` : match.stage} ·{" "}
+            {new Date(match.kickoff).toLocaleString("es")}
+          </span>
+          {match.finished && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold">
+              FINALIZADO
+            </span>
+          )}
         </div>
         <div className="font-medium mt-0.5">{match.home?.name} vs {match.away?.name}</div>
       </div>
@@ -338,8 +356,13 @@ function MatchRow({ match, onSave, onDelete }: { match: any; onSave: (id: string
         <span>-</span>
         <Input type="number" min={0} className="w-16" value={a} onChange={(e) => setA(e.target.value)} />
         <Button size="sm" onClick={() => onSave(match.id, parseInt(h), parseInt(a))} disabled={h === "" || a === ""}>
-          Guardar
+          {match.finished ? "Actualizar" : "Guardar"}
         </Button>
+        {match.finished && (
+          <Button size="sm" variant="outline" onClick={() => onClear(match.id)} title="Borrar resultado y recalcular puntos">
+            Borrar resultado
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onClick={() => onDelete(match.id)}><Trash2 className="size-4 text-destructive" /></Button>
       </div>
     </Card>
