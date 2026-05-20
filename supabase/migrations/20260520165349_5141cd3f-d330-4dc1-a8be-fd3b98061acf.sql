@@ -1,0 +1,1 @@
+ALTER VIEW public.user_scores SET (security_invoker = on);
