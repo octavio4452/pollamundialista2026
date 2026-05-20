@@ -328,11 +328,19 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
 
   return (
     <div className="space-y-6">
-      {BRACKET_CATS.map((cat) => {
+      {BRACKET_CATS.map((cat, idx) => {
         const selected = preds.filter((p: any) => p.category === cat.key);
-        const visibleTeams = locked
-          ? teams.filter((t: any) => selected.some((s: any) => s.team_id === t.id))
+        const prevCat = idx > 0 ? BRACKET_CATS[idx - 1] : null;
+        const prevSelectedIds = prevCat
+          ? new Set(preds.filter((p: any) => p.category === prevCat.key).map((p: any) => p.team_id))
+          : null;
+        const eligibleTeams = prevSelectedIds
+          ? teams.filter((t: any) => prevSelectedIds.has(t.id))
           : teams;
+        const visibleTeams = locked
+          ? eligibleTeams.filter((t: any) => selected.some((s: any) => s.team_id === t.id))
+          : eligibleTeams;
+        const blocked = prevCat && prevSelectedIds!.size < prevCat.count;
         return (
           <Card key={cat.key} className="p-5 elevation-1">
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
@@ -343,6 +351,10 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
             </div>
             {locked && visibleTeams.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">No seleccionaste equipos en esta fase.</p>
+            ) : !locked && blocked ? (
+              <p className="text-sm text-muted-foreground italic">
+                Primero completa "{prevCat!.label}" ({prevSelectedIds!.size}/{prevCat!.count}) para habilitar esta fase.
+              </p>
             ) : (
               (() => {
                 const byGroup = visibleTeams.reduce((acc: Record<string, any[]>, t: any) => {
