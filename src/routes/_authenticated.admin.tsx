@@ -565,8 +565,7 @@ function ReportsPanel() {
       doc.text(`Participantes con envío final: ${lockedUsers.length}`, 40, 82);
 
       lockedUsers.forEach((u: any, idx: number) => {
-        if (idx > 0) doc.addPage();
-        else doc.addPage();
+        doc.addPage();
 
         doc.setFontSize(14);
         doc.text(u.full_name ?? "Usuario", 40, 50);
@@ -639,9 +638,6 @@ function ReportsPanel() {
         });
       });
 
-      // remove the first empty page created by addPage on idx=0
-      doc.deletePage(2);
-      // actually keep simple: easier to not add extra page first
       doc.save(`pronosticos-${generatedAt.toISOString().slice(0, 10)}.pdf`);
       toast.success("Reporte generado");
     } catch (e: any) {
