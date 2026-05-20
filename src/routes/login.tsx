@@ -39,7 +39,7 @@ function LoginPage() {
             <Trophy className="size-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Quiniela 2026</h1>
+            <h1 className="text-2xl font-bold">Polla Mundialista 2026</h1>
             <p className="text-sm text-muted-foreground">Mundial FIFA</p>
           </div>
         </div>

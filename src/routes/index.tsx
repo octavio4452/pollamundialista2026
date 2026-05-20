@@ -6,6 +6,7 @@ import { getColombianMatches } from "@/lib/sportsdb.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trophy, Calendar, ArrowRight } from "lucide-react";
+import colombiaHero from "@/assets/colombia-hero.jpg";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -22,13 +23,21 @@ function Index() {
     <div className="min-h-screen bg-background">
       {/* Hero */}
       <section className="relative overflow-hidden border-b">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.15),transparent_60%)]" />
+        <img
+          src={colombiaHero}
+          alt="Selección Colombia celebrando"
+          width={1920}
+          height={1080}
+          className="absolute inset-0 w-full h-full object-cover opacity-30"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/85 to-background" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.2),transparent_60%)]" />
         <div className="relative max-w-5xl mx-auto px-6 py-16 sm:py-24">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-5">
             <Trophy className="size-3.5" /> Mundial 2026
           </div>
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight">
-            Quiniela del <span className="text-primary">Mundial 2026</span>
+            Polla Mundialista <span className="text-primary">2026</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
             Predice resultados, equipos que avanzan, finalistas, campeón y goleador.
