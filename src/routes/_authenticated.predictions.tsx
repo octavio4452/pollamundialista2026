@@ -140,7 +140,7 @@ function Predictions() {
       <Tabs defaultValue="matches">
         <TabsList>
           <TabsTrigger value="matches">Partidos</TabsTrigger>
-          <TabsTrigger value="bracket">Bracket</TabsTrigger>
+          <TabsTrigger value="bracket">Llaves</TabsTrigger>
           <TabsTrigger value="scorer">Goleador</TabsTrigger>
         </TabsList>
         <TabsContent value="matches" className="mt-4">
