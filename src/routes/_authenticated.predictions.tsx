@@ -26,7 +26,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/predictions")({ component: Predictions });
 
 const BRACKET_CATS: { key: string; label: string; count: number; points: number }[] = [
-  { key: "group_advance", label: "Avanzan de grupos", count: 24, points: 2 },
+  { key: "group_advance", label: "Avanzan de grupos", count: 32, points: 2 },
   { key: "round_of_16", label: "Avanzan a octavos", count: 16, points: 4 },
   { key: "quarter_final", label: "Avanzan a cuartos", count: 8, points: 8 },
   { key: "semi_final", label: "Avanzan a semifinal", count: 4, points: 12 },
