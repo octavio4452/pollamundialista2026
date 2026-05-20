@@ -499,3 +499,198 @@ function SyncPanel() {
     </div>
   );
 }
+
+const STAGE_LABEL: Record<string, string> = {
+  group: "Grupos",
+  round_of_32: "Dieciseisavos",
+  round_of_16: "Octavos",
+  quarter_final: "Cuartos",
+  semi_final: "Semifinal",
+  final: "Final",
+  third_place: "3er lugar",
+};
+const OUTCOME_LABEL: Record<string, string> = { home: "Local", draw: "Empate", away: "Visitante" };
+const CAT_LABEL: Record<string, string> = {
+  group_advance: "Avanzan de grupos",
+  round_of_16: "Octavos",
+  quarter_final: "Cuartos",
+  semi_final: "Semifinal",
+  final: "Finalistas",
+  champion: "Campeón",
+};
+
+function ReportsPanel() {
+  const [busy, setBusy] = useState(false);
+
+  const { data: lockedUsers = [] } = useQuery({
+    queryKey: ["admin-locked-users"],
+    queryFn: async () =>
+      (await supabase
+        .from("profiles")
+        .select("id, full_name, predictions_locked_at")
+        .not("predictions_locked_at", "is", null)
+        .order("predictions_locked_at", { ascending: true })).data ?? [],
+  });
+
+  const generate = async () => {
+    setBusy(true);
+    try {
+      const ids = lockedUsers.map((u: any) => u.id);
+      if (ids.length === 0) {
+        toast.error("Aún no hay pronósticos finales enviados");
+        return;
+      }
+
+      const [teamsRes, matchesRes, mpRes, bpRes, tsRes] = await Promise.all([
+        supabase.from("teams").select("id, name, code, flag_emoji, group_name"),
+        supabase.from("matches").select("id, stage, group_name, kickoff, home_team_id, away_team_id").order("kickoff"),
+        supabase.from("match_predictions").select("user_id, match_id, predicted_outcome").in("user_id", ids),
+        supabase.from("bracket_predictions").select("user_id, category, team_id").in("user_id", ids),
+        supabase.from("top_scorer_predictions").select("user_id, player_name").in("user_id", ids),
+      ]);
+
+      const teams = new Map((teamsRes.data ?? []).map((t: any) => [t.id, t]));
+      const matches = matchesRes.data ?? [];
+      const matchById = new Map(matches.map((m: any) => [m.id, m]));
+
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const generatedAt = new Date();
+      const fmt = (d: Date | string | null) =>
+        d ? new Date(d).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" }) : "—";
+
+      doc.setFontSize(18);
+      doc.text("Reporte de pronósticos finales", 40, 50);
+      doc.setFontSize(10);
+      doc.text(`Generado: ${fmt(generatedAt)}`, 40, 68);
+      doc.text(`Participantes con envío final: ${lockedUsers.length}`, 40, 82);
+
+      lockedUsers.forEach((u: any, idx: number) => {
+        if (idx > 0) doc.addPage();
+        else doc.addPage();
+
+        doc.setFontSize(14);
+        doc.text(u.full_name ?? "Usuario", 40, 50);
+        doc.setFontSize(10);
+        doc.text(`Enviado: ${fmt(u.predictions_locked_at)}`, 40, 66);
+        doc.text(`Reporte generado: ${fmt(generatedAt)}`, 40, 80);
+
+        // Matches
+        const userMatches = (mpRes.data ?? []).filter((p: any) => p.user_id === u.id);
+        const matchRows = userMatches
+          .map((p: any) => {
+            const m = matchById.get(p.match_id);
+            if (!m) return null;
+            const home: any = teams.get(m.home_team_id);
+            const away: any = teams.get(m.away_team_id);
+            return [
+              m.stage === "group" ? `Grupo ${m.group_name}` : STAGE_LABEL[m.stage] ?? m.stage,
+              fmt(m.kickoff),
+              `${home?.flag_emoji ?? ""} ${home?.name ?? "?"} vs ${away?.flag_emoji ?? ""} ${away?.name ?? "?"}`,
+              OUTCOME_LABEL[p.predicted_outcome] ?? p.predicted_outcome,
+            ];
+          })
+          .filter(Boolean) as any[];
+
+        autoTable(doc, {
+          startY: 100,
+          head: [["Fase", "Fecha", "Partido", "Pronóstico"]],
+          body: matchRows,
+          styles: { fontSize: 8, cellPadding: 3 },
+          headStyles: { fillColor: [40, 40, 40] },
+          didDrawPage: () => {
+            doc.setFontSize(8);
+            doc.text(
+              `${u.full_name} · pág. ${doc.getNumberOfPages()}`,
+              40,
+              doc.internal.pageSize.getHeight() - 20
+            );
+          },
+        });
+
+        // Bracket
+        const userBracket = (bpRes.data ?? []).filter((p: any) => p.user_id === u.id);
+        const bracketRows = Object.keys(CAT_LABEL).map((cat) => {
+          const picks = userBracket
+            .filter((b: any) => b.category === cat)
+            .map((b: any) => {
+              const t: any = teams.get(b.team_id);
+              return `${t?.flag_emoji ?? ""} ${t?.name ?? "?"}`;
+            })
+            .join(", ");
+          return [CAT_LABEL[cat], picks || "—"];
+        });
+
+        autoTable(doc, {
+          startY: (doc as any).lastAutoTable.finalY + 16,
+          head: [["Bracket", "Equipos"]],
+          body: bracketRows,
+          styles: { fontSize: 8, cellPadding: 3 },
+          headStyles: { fillColor: [40, 40, 40] },
+        });
+
+        // Top scorer
+        const ts = (tsRes.data ?? []).find((s: any) => s.user_id === u.id);
+        autoTable(doc, {
+          startY: (doc as any).lastAutoTable.finalY + 16,
+          head: [["Goleador", ""]],
+          body: [["Pronóstico", ts?.player_name ?? "—"]],
+          styles: { fontSize: 8, cellPadding: 3 },
+          headStyles: { fillColor: [40, 40, 40] },
+        });
+      });
+
+      // remove the first empty page created by addPage on idx=0
+      doc.deletePage(2);
+      // actually keep simple: easier to not add extra page first
+      doc.save(`pronosticos-${generatedAt.toISOString().slice(0, 10)}.pdf`);
+      toast.success("Reporte generado");
+    } catch (e: any) {
+      toast.error(e.message ?? "Error generando el reporte");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Download className="size-4 text-primary" />
+          <h3 className="font-semibold">Pronósticos finales en PDF</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Genera un informe con los pronósticos enviados por cada participante. Incluye la fecha de envío
+          de cada usuario y la fecha de generación del reporte.
+        </p>
+        <div className="text-sm">
+          Participantes con envío final: <b>{lockedUsers.length}</b>
+        </div>
+        <Button onClick={generate} disabled={busy || lockedUsers.length === 0}>
+          {busy ? "Generando…" : "Descargar PDF"}
+        </Button>
+      </Card>
+      {lockedUsers.length > 0 && (
+        <Card className="p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="text-left p-3">Participante</th>
+                <th className="text-left p-3">Enviado el</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lockedUsers.map((u: any) => (
+                <tr key={u.id} className="border-t">
+                  <td className="p-3 font-medium">{u.full_name}</td>
+                  <td className="p-3 text-muted-foreground">
+                    {new Date(u.predictions_locked_at).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </div>
+  );
+}
