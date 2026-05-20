@@ -156,7 +156,7 @@ function BracketTab() {
       if (count >= max) return toast.error(`Máximo ${max} equipos en esta fase`);
       const { error } = await supabase
         .from("bracket_predictions")
-        .insert({ user_id: user.id, category: cat, team_id: teamId });
+        .insert({ user_id: user.id, category: cat as any, team_id: teamId });
       if (error) return toast.error(error.message);
     }
     qc.invalidateQueries({ queryKey: ["my-bracket"] });
