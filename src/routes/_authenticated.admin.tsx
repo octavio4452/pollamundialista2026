@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, ShieldCheck, ShieldOff, RefreshCw, Download } from "lucide-react";
+import { Trash2, ShieldCheck, ShieldOff, RefreshCw, Download, Unlock, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -111,14 +111,29 @@ function UsersPanel() {
       <Card className="p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-            <tr><th className="text-left p-3">Nombre</th><th className="text-left p-3">Rol</th><th className="p-3"></th></tr>
+            <tr><th className="text-left p-3">Nombre</th><th className="text-left p-3">Rol</th><th className="text-left p-3">Pronósticos</th><th className="p-3"></th></tr>
           </thead>
           <tbody>
             {users.map((u: any) => (
               <tr key={u.id} className="border-t">
                 <td className="p-3 font-medium">{u.full_name}</td>
                 <td className="p-3">{u.isAdmin ? <span className="text-primary">Admin</span> : "Usuario"}</td>
+                <td className="p-3">
+                  {u.predictions_locked_at
+                    ? <span className="inline-flex items-center gap-1 text-xs text-amber-600"><Lock className="size-3" /> Bloqueados</span>
+                    : <span className="text-xs text-muted-foreground">Abiertos</span>}
+                </td>
                 <td className="p-3 flex justify-end gap-2">
+                  {u.predictions_locked_at && (
+                    <Button variant="outline" size="sm" title="Desbloquear envío de pronósticos" onClick={async () => {
+                      if (!confirm(`¿Desbloquear los pronósticos de ${u.full_name}? Podrá editarlos y volver a enviarlos.`)) return;
+                      const { error } = await supabase.from("profiles").update({ predictions_locked_at: null }).eq("id", u.id);
+                      if (error) toast.error(error.message);
+                      else { toast.success("Pronósticos desbloqueados"); qc.invalidateQueries({ queryKey: ["admin-users"] }); }
+                    }}>
+                      <Unlock className="size-4" />
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={async () => {
                     try { await toggleFn({ data: { userId: u.id, makeAdmin: !u.isAdmin } }); qc.invalidateQueries({ queryKey: ["admin-users"] }); }
                     catch (e: any) { toast.error(e.message); }
