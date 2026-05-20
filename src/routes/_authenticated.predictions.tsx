@@ -309,6 +309,26 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
   if (teams.length === 0)
     return <Card className="p-8 text-center text-muted-foreground">El admin debe cargar los equipos primero.</Card>;
 
+  // Auto-cleanup: borra picks de fases posteriores cuyo equipo ya no esté en la fase previa
+  useEffect(() => {
+    if (locked) return;
+    (async () => {
+      const orphans: string[] = [];
+      for (let i = 1; i < BRACKET_CATS.length; i++) {
+        const prev = BRACKET_CATS[i - 1];
+        const cur = BRACKET_CATS[i];
+        const prevIds = new Set(preds.filter((p: any) => p.category === prev.key).map((p: any) => p.team_id));
+        preds
+          .filter((p: any) => p.category === cur.key && !prevIds.has(p.team_id))
+          .forEach((p: any) => orphans.push(p.id));
+      }
+      if (orphans.length > 0) {
+        await supabase.from("bracket_predictions").delete().in("id", orphans);
+        qc.invalidateQueries({ queryKey: ["my-bracket"] });
+      }
+    })();
+  }, [preds, locked, qc]);
+
   const toggle = async (cat: string, teamId: string, max: number) => {
     if (!user || locked) return;
     const existing = preds.find((p: any) => p.category === cat && p.team_id === teamId);
