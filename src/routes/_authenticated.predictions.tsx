@@ -357,7 +357,7 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
               <h3 className="font-semibold">{cat.label}</h3>
               <div className="flex items-center gap-2">
-                {cat.key === "group_advance" && selected.length === cat.count && (
+                {selected.length === cat.count && (
                   <Badge variant="default" className="bg-green-600 text-white gap-1">
                     <CheckCircle2 className="size-3" />
                     Completo
