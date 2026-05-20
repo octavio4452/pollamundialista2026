@@ -16,6 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, ShieldCheck, ShieldOff, RefreshCw, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: Admin });
 
@@ -41,6 +43,7 @@ function Admin() {
           <TabsTrigger value="bracket">Bracket oficial</TabsTrigger>
           <TabsTrigger value="scorer">Goleador oficial</TabsTrigger>
           <TabsTrigger value="sync">Sincronizar Mundial</TabsTrigger>
+          <TabsTrigger value="reports">Reportes</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
         <TabsContent value="teams" className="mt-4"><TeamsPanel /></TabsContent>
@@ -48,6 +51,7 @@ function Admin() {
         <TabsContent value="bracket" className="mt-4"><BracketPanel /></TabsContent>
         <TabsContent value="scorer" className="mt-4"><ScorerPanel /></TabsContent>
         <TabsContent value="sync" className="mt-4"><SyncPanel /></TabsContent>
+        <TabsContent value="reports" className="mt-4"><ReportsPanel /></TabsContent>
       </Tabs>
     </div>
   );
