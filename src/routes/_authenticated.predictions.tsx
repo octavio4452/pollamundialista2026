@@ -344,26 +344,45 @@ function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
             {locked && visibleTeams.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">No seleccionaste equipos en esta fase.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {visibleTeams.map((t: any) => {
-                  const isSel = selected.some((s: any) => s.team_id === t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => toggle(cat.key, t.id, cat.count)}
-                      className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
-                        isSel
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card hover:bg-muted border-border"
-                      } ${locked ? "cursor-default" : ""}`}
-                    >
-                      {t.flag_emoji} {t.name}
-                    </button>
-                  );
-                })}
-              </div>
+              (() => {
+                const byGroup = visibleTeams.reduce((acc: Record<string, any[]>, t: any) => {
+                  const g = t.group_name || "—";
+                  (acc[g] ||= []).push(t);
+                  return acc;
+                }, {});
+                const groupKeys = Object.keys(byGroup).sort();
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {groupKeys.map((g) => (
+                      <div key={g} className="rounded-md border border-border bg-muted/30 p-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                          Grupo {g}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {byGroup[g].map((t: any) => {
+                            const isSel = selected.some((s: any) => s.team_id === t.id);
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                disabled={locked}
+                                onClick={() => toggle(cat.key, t.id, cat.count)}
+                                className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                                  isSel
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-card hover:bg-muted border-border"
+                                } ${locked ? "cursor-default" : ""}`}
+                              >
+                                {t.flag_emoji} {t.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
             )}
           </Card>
         );
