@@ -89,13 +89,16 @@ function Predictions() {
     return { ok, missingMatches, bracketMissing, scorerMissing };
   }, [matches, matchPreds, bracketPreds, scorer]);
 
-  const finalize = async () => {
+  const finalize = async (): Promise<void> => {
     if (!user) return;
     const { error } = await supabase
       .from("profiles")
       .update({ predictions_locked_at: new Date().toISOString() })
       .eq("id", user.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Pronósticos enviados de forma definitiva");
     qc.invalidateQueries({ queryKey: ["profile-lock"] });
   };
