@@ -16,8 +16,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, ShieldCheck, ShieldOff, RefreshCw, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: Admin });
 
@@ -535,6 +533,10 @@ function ReportsPanel() {
   const generate = async () => {
     setBusy(true);
     try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const ids = lockedUsers.map((u: any) => u.id);
       if (ids.length === 0) {
         toast.error("Aún no hay pronósticos finales enviados");
