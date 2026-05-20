@@ -7,54 +7,190 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Lock, Send, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/predictions")({ component: Predictions });
 
+const BRACKET_CATS: { key: string; label: string; count: number; points: number }[] = [
+  { key: "group_advance", label: "Avanzan de grupos", count: 24, points: 2 },
+  { key: "round_of_16", label: "Avanzan a octavos", count: 16, points: 4 },
+  { key: "quarter_final", label: "Avanzan a cuartos", count: 8, points: 8 },
+  { key: "semi_final", label: "Avanzan a semifinal", count: 4, points: 12 },
+  { key: "final", label: "Finalistas", count: 2, points: 20 },
+  { key: "champion", label: "Campeón", count: 1, points: 30 },
+];
+
 function Predictions() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  const { data: profile } = useQuery({
+    queryKey: ["profile-lock", user?.id],
+    enabled: !!user,
+    queryFn: async () =>
+      (await supabase.from("profiles").select("predictions_locked_at").eq("id", user!.id).maybeSingle()).data,
+  });
+  const locked = !!profile?.predictions_locked_at;
+
+  const { data: matches = [] } = useQuery({
+    queryKey: ["matches-pred"],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("matches")
+          .select(
+            "id, stage, group_name, kickoff, finished, home_score, away_score, home:home_team_id(id, name, code, flag_emoji), away:away_team_id(id, name, code, flag_emoji)",
+          )
+          .order("kickoff")
+      ).data ?? [],
+  });
+  const { data: matchPreds = [] } = useQuery({
+    queryKey: ["my-match-preds", user?.id],
+    enabled: !!user,
+    queryFn: async () =>
+      (await supabase.from("match_predictions").select("*").eq("user_id", user!.id)).data ?? [],
+  });
+  const { data: bracketPreds = [] } = useQuery({
+    queryKey: ["my-bracket", user?.id],
+    enabled: !!user,
+    queryFn: async () =>
+      (await supabase.from("bracket_predictions").select("*").eq("user_id", user!.id)).data ?? [],
+  });
+  const { data: scorer } = useQuery({
+    queryKey: ["my-scorer", user?.id],
+    enabled: !!user,
+    queryFn: async () =>
+      (await supabase.from("top_scorer_predictions").select("*").eq("user_id", user!.id).maybeSingle()).data,
+  });
+
+  const validation = useMemo(() => {
+    const missingMatches = matches.filter((m: any) => !matchPreds.some((p: any) => p.match_id === m.id)).length;
+    const bracketMissing = BRACKET_CATS.map((c) => ({
+      label: c.label,
+      need: c.count,
+      have: bracketPreds.filter((p: any) => p.category === c.key).length,
+    })).filter((b) => b.have !== b.need);
+    const scorerMissing = !scorer?.player_name?.trim();
+    const ok = missingMatches === 0 && bracketMissing.length === 0 && !scorerMissing;
+    return { ok, missingMatches, bracketMissing, scorerMissing };
+  }, [matches, matchPreds, bracketPreds, scorer]);
+
+  const finalize = async () => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("profiles")
+      .update({ predictions_locked_at: new Date().toISOString() })
+      .eq("id", user.id);
+    if (error) return toast.error(error.message);
+    toast.success("Pronósticos enviados de forma definitiva");
+    qc.invalidateQueries({ queryKey: ["profile-lock"] });
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Mis pronósticos</h1>
-        <p className="text-muted-foreground mt-1">Registra tus predicciones antes del inicio del partido.</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Mis pronósticos</h1>
+          <p className="text-muted-foreground mt-1">
+            {locked
+              ? "Tus pronósticos fueron enviados. Ya no se pueden modificar."
+              : "Registra tus predicciones antes del inicio del partido."}
+          </p>
+        </div>
+        {locked ? (
+          <Badge className="gap-1 elevation-1" variant="secondary">
+            <Lock className="size-3.5" />
+            Enviado el {new Date(profile!.predictions_locked_at!).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}
+          </Badge>
+        ) : (
+          <FinalizeButton validation={validation} onConfirm={finalize} />
+        )}
       </div>
+      {!locked && !validation.ok && (
+        <Card className="p-4 elevation-1 border-amber-500/30 bg-amber-500/5">
+          <div className="text-sm font-medium mb-2">Te faltan pronósticos por completar:</div>
+          <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
+            {validation.missingMatches > 0 && <li>{validation.missingMatches} partido(s) sin pronóstico</li>}
+            {validation.bracketMissing.map((b) => (
+              <li key={b.label}>
+                {b.label}: {b.have}/{b.need}
+              </li>
+            ))}
+            {validation.scorerMissing && <li>Goleador del torneo</li>}
+          </ul>
+        </Card>
+      )}
       <Tabs defaultValue="matches">
         <TabsList>
           <TabsTrigger value="matches">Partidos</TabsTrigger>
           <TabsTrigger value="bracket">Bracket</TabsTrigger>
           <TabsTrigger value="scorer">Goleador</TabsTrigger>
         </TabsList>
-        <TabsContent value="matches" className="mt-4"><MatchesTab /></TabsContent>
-        <TabsContent value="bracket" className="mt-4"><BracketTab /></TabsContent>
-        <TabsContent value="scorer" className="mt-4"><ScorerTab /></TabsContent>
+        <TabsContent value="matches" className="mt-4">
+          <MatchesTab matches={matches} preds={matchPreds} locked={locked} />
+        </TabsContent>
+        <TabsContent value="bracket" className="mt-4">
+          <BracketTab preds={bracketPreds} locked={locked} />
+        </TabsContent>
+        <TabsContent value="scorer" className="mt-4">
+          <ScorerTab scorer={scorer} locked={locked} />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function MatchesTab() {
+function FinalizeButton({
+  validation,
+  onConfirm,
+}: {
+  validation: { ok: boolean };
+  onConfirm: () => void | Promise<void>;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="lg" className="elevation-2 gap-2" disabled={!validation.ok}>
+          <Send className="size-4" />
+          Envío final de pronósticos
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Confirmar envío definitivo?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Una vez enviados, tus pronósticos quedarán bloqueados y no podrás modificarlos.
+            Esta acción no se puede deshacer.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={() => onConfirm()}>
+            <CheckCircle2 className="size-4 mr-1" /> Sí, enviar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function MatchesTab({ matches, preds, locked }: { matches: any[]; preds: any[]; locked: boolean }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { data: matches = [] } = useQuery({
-    queryKey: ["matches-pred"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("matches")
-        .select("id, stage, group_name, kickoff, finished, home_score, away_score, home:home_team_id(id, name, code, flag_emoji), away:away_team_id(id, name, code, flag_emoji)")
-        .order("kickoff");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-  const { data: preds = [] } = useQuery({
-    queryKey: ["my-match-preds", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("match_predictions").select("*").eq("user_id", user!.id);
-      return data ?? [];
-    },
-  });
 
   const predMap = new Map(preds.map((p: any) => [p.match_id, p]));
 
@@ -78,22 +214,26 @@ function MatchesTab() {
   return (
     <div className="space-y-3">
       {matches.map((m: any) => {
-        const locked = m.finished || new Date(m.kickoff) <= new Date();
+        const matchLocked = locked || m.finished || new Date(m.kickoff) <= new Date();
         const p = predMap.get(m.id);
-        const choice = (val: "home" | "draw" | "away", label: string) => (
-          <Button
-            key={val}
-            type="button"
-            variant={p?.predicted_outcome === val ? "default" : "outline"}
-            size="sm"
-            disabled={locked}
-            onClick={() => setPred(m.id, val)}
-          >
-            {label}
-          </Button>
-        );
+        const choice = (val: "home" | "draw" | "away", label: string) => {
+          const selected = p?.predicted_outcome === val;
+          if (locked && !selected) return null;
+          return (
+            <Button
+              key={val}
+              type="button"
+              variant={selected ? "default" : "outline"}
+              size="sm"
+              disabled={matchLocked}
+              onClick={() => setPred(m.id, val)}
+            >
+              {label}
+            </Button>
+          );
+        };
         return (
-          <Card key={m.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between">
+          <Card key={m.id} className="p-4 elevation-1 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between">
             <div className="flex-1">
               <div className="text-xs text-muted-foreground uppercase tracking-wide">
                 {m.stage === "group" ? `Grupo ${m.group_name}` : m.stage.replace(/_/g, " ")} ·{" "}
@@ -108,7 +248,10 @@ function MatchesTab() {
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              {locked && !p && (
+                <span className="text-xs text-muted-foreground italic">Sin pronóstico</span>
+              )}
               {choice("home", m.home?.code || "Local")}
               {choice("draw", "Empate")}
               {choice("away", m.away?.code || "Visitante")}
@@ -120,33 +263,19 @@ function MatchesTab() {
   );
 }
 
-const BRACKET_CATS: { key: string; label: string; count: number; points: number }[] = [
-  { key: "group_advance", label: "Avanzan de grupos", count: 24, points: 2 },
-  { key: "round_of_16", label: "Avanzan a octavos", count: 16, points: 4 },
-  { key: "quarter_final", label: "Avanzan a cuartos", count: 8, points: 8 },
-  { key: "semi_final", label: "Avanzan a semifinal", count: 4, points: 12 },
-  { key: "final", label: "Finalistas", count: 2, points: 20 },
-  { key: "champion", label: "Campeón", count: 1, points: 30 },
-];
-
-function BracketTab() {
+function BracketTab({ preds, locked }: { preds: any[]; locked: boolean }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { data: teams = [] } = useQuery({
     queryKey: ["teams"],
     queryFn: async () => (await supabase.from("teams").select("*").order("group_name").order("name")).data ?? [],
   });
-  const { data: preds = [] } = useQuery({
-    queryKey: ["my-bracket", user?.id],
-    enabled: !!user,
-    queryFn: async () => (await supabase.from("bracket_predictions").select("*").eq("user_id", user!.id)).data ?? [],
-  });
 
   if (teams.length === 0)
     return <Card className="p-8 text-center text-muted-foreground">El admin debe cargar los equipos primero.</Card>;
 
   const toggle = async (cat: string, teamId: string, max: number) => {
-    if (!user) return;
+    if (!user || locked) return;
     const existing = preds.find((p: any) => p.category === cat && p.team_id === teamId);
     if (existing) {
       const { error } = await supabase.from("bracket_predictions").delete().eq("id", existing.id);
@@ -166,33 +295,41 @@ function BracketTab() {
     <div className="space-y-6">
       {BRACKET_CATS.map((cat) => {
         const selected = preds.filter((p: any) => p.category === cat.key);
+        const visibleTeams = locked
+          ? teams.filter((t: any) => selected.some((s: any) => s.team_id === t.id))
+          : teams;
         return (
-          <Card key={cat.key} className="p-5">
+          <Card key={cat.key} className="p-5 elevation-1">
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
               <h3 className="font-semibold">{cat.label}</h3>
               <span className="text-xs text-muted-foreground">
                 {selected.length}/{cat.count} · {cat.points} pts c/u
               </span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {teams.map((t: any) => {
-                const isSel = selected.some((s: any) => s.team_id === t.id);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => toggle(cat.key, t.id, cat.count)}
-                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
-                      isSel
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card hover:bg-muted border-border"
-                    }`}
-                  >
-                    {t.flag_emoji} {t.name}
-                  </button>
-                );
-              })}
-            </div>
+            {locked && visibleTeams.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No seleccionaste equipos en esta fase.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {visibleTeams.map((t: any) => {
+                  const isSel = selected.some((s: any) => s.team_id === t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => toggle(cat.key, t.id, cat.count)}
+                      className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                        isSel
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card hover:bg-muted border-border"
+                      } ${locked ? "cursor-default" : ""}`}
+                    >
+                      {t.flag_emoji} {t.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </Card>
         );
       })}
@@ -200,20 +337,15 @@ function BracketTab() {
   );
 }
 
-function ScorerTab() {
+function ScorerTab({ scorer, locked }: { scorer: any; locked: boolean }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { data: current } = useQuery({
-    queryKey: ["my-scorer", user?.id],
-    enabled: !!user,
-    queryFn: async () => (await supabase.from("top_scorer_predictions").select("*").eq("user_id", user!.id).maybeSingle()).data,
-  });
   const [name, setName] = useState("");
-  useEffect(() => setName(current?.player_name ?? ""), [current]);
+  useEffect(() => setName(scorer?.player_name ?? ""), [scorer]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !name.trim()) return;
+    if (!user || !name.trim() || locked) return;
     const { error } = await supabase
       .from("top_scorer_predictions")
       .upsert({ user_id: user.id, player_name: name.trim(), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
@@ -224,8 +356,17 @@ function ScorerTab() {
     }
   };
 
+  if (locked) {
+    return (
+      <Card className="p-5 elevation-1 max-w-md">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Tu goleador</div>
+        <div className="text-lg font-semibold">{scorer?.player_name || "—"}</div>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="p-5 max-w-md">
+    <Card className="p-5 elevation-1 max-w-md">
       <form onSubmit={save} className="space-y-3">
         <Label htmlFor="scorer">Tu pronóstico para goleador (15 pts)</Label>
         <Input id="scorer" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Lionel Messi" maxLength={120} />
