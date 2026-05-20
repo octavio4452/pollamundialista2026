@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { createUser, deleteUser, toggleAdmin } from "@/lib/admin.functions";
+import { importWorldCupFixture, syncWorldCupResults } from "@/lib/sportsdb.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, ShieldCheck, ShieldOff } from "lucide-react";
+import { Trash2, ShieldCheck, ShieldOff, RefreshCw, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -39,12 +40,14 @@ function Admin() {
           <TabsTrigger value="matches">Partidos</TabsTrigger>
           <TabsTrigger value="bracket">Bracket oficial</TabsTrigger>
           <TabsTrigger value="scorer">Goleador oficial</TabsTrigger>
+          <TabsTrigger value="sync">Sincronizar Mundial</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
         <TabsContent value="teams" className="mt-4"><TeamsPanel /></TabsContent>
         <TabsContent value="matches" className="mt-4"><MatchesPanel /></TabsContent>
         <TabsContent value="bracket" className="mt-4"><BracketPanel /></TabsContent>
         <TabsContent value="scorer" className="mt-4"><ScorerPanel /></TabsContent>
+        <TabsContent value="sync" className="mt-4"><SyncPanel /></TabsContent>
       </Tabs>
     </div>
   );
