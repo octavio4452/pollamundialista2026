@@ -101,9 +101,9 @@ function MyPoints() {
       </Card>
 
       <Card className="p-5">
-        <h2 className="font-semibold mb-4">Bracket y avances</h2>
+        <h2 className="font-semibold mb-4">Llaves y avances</h2>
         {bracket.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aún no tienes pronósticos de bracket.</p>
+          <p className="text-sm text-muted-foreground">Aún no tienes pronósticos de llaves.</p>
         ) : (
           <div className="space-y-4">
             {Object.keys(CAT_LABEL).map((cat) => {

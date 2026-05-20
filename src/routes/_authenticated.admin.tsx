@@ -38,7 +38,7 @@ function Admin() {
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="teams">Equipos</TabsTrigger>
           <TabsTrigger value="matches">Partidos</TabsTrigger>
-          <TabsTrigger value="bracket">Bracket oficial</TabsTrigger>
+          <TabsTrigger value="bracket">Llaves oficiales</TabsTrigger>
           <TabsTrigger value="scorer">Goleador oficial</TabsTrigger>
           <TabsTrigger value="sync">Sincronizar Mundial</TabsTrigger>
           <TabsTrigger value="reports">Reportes</TabsTrigger>
@@ -362,7 +362,7 @@ function BracketPanel() {
     }
     qc.invalidateQueries({ queryKey: ["bracket-results"] });
     qc.invalidateQueries({ queryKey: ["user_scores"] });
-    toast.success("Bracket actualizado, puntos recalculados");
+    toast.success("Llaves actualizadas, puntos recalculados");
   };
 
   return (
@@ -623,7 +623,7 @@ function ReportsPanel() {
 
         autoTable(doc, {
           startY: (doc as any).lastAutoTable.finalY + 16,
-          head: [["Bracket", "Equipos"]],
+          head: [["Llaves", "Equipos"]],
           body: bracketRows,
           styles: { fontSize: 8, cellPadding: 3 },
           headStyles: { fillColor: [40, 40, 40] },

@@ -40,7 +40,7 @@ function Dashboard() {
                 <th className="text-left py-3 px-4 w-12">#</th>
                 <th className="text-left py-3 px-4">Participante</th>
                 <th className="text-right py-3 px-4">Partidos</th>
-                <th className="text-right py-3 px-4">Bracket</th>
+                <th className="text-right py-3 px-4">Llaves</th>
                 <th className="text-right py-3 px-4">Goleador</th>
                 <th className="text-right py-3 px-4">Total</th>
               </tr>
