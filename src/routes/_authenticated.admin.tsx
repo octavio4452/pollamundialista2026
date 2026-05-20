@@ -16,8 +16,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, ShieldCheck, ShieldOff, RefreshCw, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: Admin });
 
