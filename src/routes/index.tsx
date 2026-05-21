@@ -130,15 +130,30 @@ function GroupMatchLine({ m }: { m: any }) {
       </div>
       <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
         <span className="truncate font-medium text-right">{m.home?.name}</span>
-        <span>{m.home?.flag_emoji}</span>
+        <TeamCrest team={m.home} />
       </div>
       <div className="font-mono font-semibold tabular-nums px-1 text-xs">
         {showScore ? `${m.home_score}-${m.away_score}` : "vs"}
       </div>
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        <span>{m.away?.flag_emoji}</span>
+        <TeamCrest team={m.away} />
         <span className="truncate font-medium">{m.away?.name}</span>
       </div>
     </div>
+  );
+}
+
+function TeamCrest({ team }: { team: any }) {
+  const url = flagUrl(team?.code);
+  if (!url) return <span className="text-base leading-none">{team?.flag_emoji}</span>;
+  return (
+    <img
+      src={url}
+      alt={team?.name ?? ""}
+      width={20}
+      height={14}
+      loading="lazy"
+      className="h-3.5 w-5 rounded-[2px] object-cover ring-1 ring-border shrink-0"
+    />
   );
 }
