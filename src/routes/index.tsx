@@ -1,23 +1,37 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
-import { getColombianMatches } from "@/lib/sportsdb.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Calendar, ArrowRight } from "lucide-react";
+import { Trophy, ArrowRight } from "lucide-react";
 import colombiaHero from "@/assets/colombia-hero.jpg";
 
 export const Route = createFileRoute("/")({ component: Index });
 
 function Index() {
   const { session } = useAuth();
-  const fetchCol = useServerFn(getColombianMatches);
   const { data, isLoading } = useQuery({
-    queryKey: ["colombian-matches"],
-    queryFn: () => fetchCol(),
+    queryKey: ["wc-group-fixture"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("matches")
+        .select("id, group_name, kickoff, home_score, away_score, finished, home:home_team_id(name,flag_emoji), away:away_team_id(name,flag_emoji)")
+        .eq("stage", "group")
+        .order("group_name", { ascending: true })
+        .order("kickoff", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
     staleTime: 5 * 60 * 1000,
   });
+
+  const groups = (data ?? []).reduce<Record<string, any[]>>((acc, m: any) => {
+    const g = m.group_name || "—";
+    (acc[g] ||= []).push(m);
+    return acc;
+  }, {});
+  const groupKeys = Object.keys(groups).sort();
 
   return (
     <div className="min-h-screen bg-background">
@@ -72,39 +86,32 @@ function Index() {
         </div>
       </section>
 
-      {/* Colombian league */}
-      <section className="max-w-5xl mx-auto px-6 py-12">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">En vivo</div>
-            <h2 className="text-2xl sm:text-3xl font-bold">Fútbol colombiano</h2>
-            <p className="text-sm text-muted-foreground mt-1">{data?.league ?? "Liga Colombiana"}</p>
-          </div>
-          <a href="https://www.thesportsdb.com" target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground">datos: TheSportsDB</a>
+      {/* World Cup fixture by groups */}
+      <section className="max-w-6xl mx-auto px-6 py-12">
+        <div className="mb-6">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">Fixture</div>
+          <h2 className="text-2xl sm:text-3xl font-bold">Mundial 2026 — Fase de grupos</h2>
+          <p className="text-sm text-muted-foreground mt-1">Todos los partidos agrupados por grupo.</p>
         </div>
 
         {isLoading && <Card className="p-8 text-center text-sm text-muted-foreground">Cargando partidos…</Card>}
 
-        {!isLoading && (
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card className="p-5">
-              <h3 className="font-semibold mb-3 flex items-center gap-2"><Trophy className="size-4 text-primary" /> Últimos resultados</h3>
-              <div className="space-y-2">
-                {(data?.past ?? []).slice(0, 6).map((m) => <MatchLine key={m.id} m={m} />)}
-                {(data?.past?.length ?? 0) === 0 && (
-                  <p className="text-sm text-muted-foreground">Sin resultados recientes.</p>
-                )}
-              </div>
-            </Card>
-            <Card className="p-5">
-              <h3 className="font-semibold mb-3 flex items-center gap-2"><Calendar className="size-4 text-primary" /> Próximos partidos</h3>
-              <div className="space-y-2">
-                {(data?.upcoming ?? []).slice(0, 6).map((m) => <MatchLine key={m.id} m={m} upcoming />)}
-                {(data?.upcoming?.length ?? 0) === 0 && (
-                  <p className="text-sm text-muted-foreground">Sin próximos partidos programados.</p>
-                )}
-              </div>
-            </Card>
+        {!isLoading && groupKeys.length === 0 && (
+          <Card className="p-8 text-center text-sm text-muted-foreground">Aún no hay partidos cargados.</Card>
+        )}
+
+        {!isLoading && groupKeys.length > 0 && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {groupKeys.map((g) => (
+              <Card key={g} className="p-5">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Trophy className="size-4 text-primary" /> Grupo {g}
+                </h3>
+                <div className="space-y-1">
+                  {groups[g].map((m) => <GroupMatchLine key={m.id} m={m} />)}
+                </div>
+              </Card>
+            ))}
           </div>
         )}
       </section>
@@ -112,22 +119,24 @@ function Index() {
   );
 }
 
-function MatchLine({ m, upcoming }: { m: any; upcoming?: boolean }) {
+function GroupMatchLine({ m }: { m: any }) {
+  const kickoff = new Date(m.kickoff);
+  const showScore = m.finished && m.home_score != null && m.away_score != null;
   return (
-    <div className="flex items-center gap-3 py-2 border-b last:border-0">
-      <div className="text-[10px] text-muted-foreground w-16 shrink-0">
-        {new Date(m.date + (m.time ? `T${m.time}Z` : "T12:00:00Z")).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
+    <div className="flex items-center gap-2 py-1.5 border-b last:border-0 text-sm">
+      <div className="text-[10px] text-muted-foreground w-12 shrink-0">
+        {kickoff.toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
       </div>
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {m.homeBadge && <img src={m.homeBadge} alt="" className="size-5 rounded-sm object-contain" />}
-        <span className="truncate text-sm font-medium">{m.home}</span>
+      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+        <span className="truncate font-medium text-right">{m.home?.name}</span>
+        <span>{m.home?.flag_emoji}</span>
       </div>
-      <div className="text-sm font-mono font-semibold tabular-nums px-2">
-        {upcoming ? "vs" : `${m.homeScore ?? "-"} : ${m.awayScore ?? "-"}`}
+      <div className="font-mono font-semibold tabular-nums px-1 text-xs">
+        {showScore ? `${m.home_score}-${m.away_score}` : "vs"}
       </div>
-      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-        <span className="truncate text-sm font-medium text-right">{m.away}</span>
-        {m.awayBadge && <img src={m.awayBadge} alt="" className="size-5 rounded-sm object-contain" />}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <span>{m.away?.flag_emoji}</span>
+        <span className="truncate font-medium">{m.away?.name}</span>
       </div>
     </div>
   );
