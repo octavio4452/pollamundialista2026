@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trophy, ArrowRight } from "lucide-react";
 import colombiaHero from "@/assets/colombia-hero.jpg";
+import { flagUrl } from "@/lib/team-flags";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -16,7 +17,7 @@ function Index() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("matches")
-        .select("id, group_name, kickoff, home_score, away_score, finished, home:home_team_id(name,flag_emoji), away:away_team_id(name,flag_emoji)")
+        .select("id, group_name, kickoff, home_score, away_score, finished, home:home_team_id(name,code,flag_emoji), away:away_team_id(name,code,flag_emoji)")
         .eq("stage", "group")
         .order("group_name", { ascending: true })
         .order("kickoff", { ascending: true });
