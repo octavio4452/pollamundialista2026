@@ -1,22 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { getPublicRanking } from "@/lib/ranking.functions";
 import { Card } from "@/components/ui/card";
 import { Trophy, Medal, Award } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
 function Dashboard() {
+  const fetchRanking = useServerFn(getPublicRanking);
   const { data: scores = [], isLoading } = useQuery({
     queryKey: ["user_scores"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_scores")
-        .select("*")
-        .order("total_points", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => fetchRanking(),
   });
 
   const rankIcon = (i: number) => {
