@@ -59,6 +59,11 @@ function Index() {
             Compite con tus amigos y mira en vivo la asignación de puntos.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
+            <Button asChild size="lg" variant="outline">
+              <Link to="/ranking">
+                <Trophy className="size-4 mr-1" /> Ver ranking
+              </Link>
+            </Button>
             <Button asChild size="lg">
               <Link to={session ? "/dashboard" : "/login"}>
                 {session ? "Ir al dashboard" : "Iniciar sesión"} <ArrowRight className="size-4" />
