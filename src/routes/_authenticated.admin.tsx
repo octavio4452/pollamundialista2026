@@ -370,7 +370,7 @@ function MatchRow({ match, onSave, onClear, onDelete }: { match: any; onSave: (i
 }
 
 const BR_CATS = [
-  { k: "group_advance", l: "Avanzan de grupos", n: 24 },
+  { k: "group_advance", l: "Avanzan de grupos", n: 32 },
   { k: "round_of_16", l: "Octavos", n: 16 },
   { k: "quarter_final", l: "Cuartos", n: 8 },
   { k: "semi_final", l: "Semifinal", n: 4 },
